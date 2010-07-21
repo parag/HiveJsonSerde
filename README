@@ -1,0 +1,5 @@
+@Parag Arora
+
+Nested JSON Hive Serde
+
+use forward slash in keys to access nested json, e.g. meta/num gives 10 from {"meta":{"num":10}}
