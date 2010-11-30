@@ -24,6 +24,7 @@ package org.json;
  * SOFTWARE.
  */
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Field;
@@ -33,8 +34,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.StringTokenizer;
 import java.util.TreeSet;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 
 /**
  * A JSONObject is an unordered collection of name/value pairs. Its external
@@ -520,7 +523,18 @@ public class JSONObject {
     public Object get(String key) throws JSONException {
         Object o = opt(key);
         if (o == null) {
-            throw new JSONException("JSONObject[" + quote(key) + "] not found.");
+        	if(key.contains("/"))
+        	{
+        		StringTokenizer st = new StringTokenizer(key, "/");
+        		String parentKey = st.nextToken();
+        		o = get(parentKey);
+        		JSONObject obj = new JSONObject(new JSONTokener(o.toString()));
+        		o = obj.get(st.nextToken());
+        	}
+        	else
+        	{
+        		throw new JSONException("JSONObject[" + quote(key) + "] not found.");
+        	}
         }
         return o;
     }

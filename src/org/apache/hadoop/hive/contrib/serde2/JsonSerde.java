@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
-import java.util.StringTokenizer;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -24,7 +23,6 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.JSONTokener;
 
 /**
  * JSON SerDe for Hive
@@ -97,11 +95,6 @@ public class JsonSerde implements SerDe {
      * List of column names in the table
      */
     private List<String> columnNames;
-    
-    /**
-     * List of key paths
-     */
-    private List<String> keyPaths;
 
     /**
      * An ObjectInspector to be used as meta-data about a deserialized row
@@ -120,16 +113,12 @@ public class JsonSerde implements SerDe {
     @Override
     public void initialize(Configuration sysProps, Properties tblProps)
 	    throws SerDeException {
-	LOG.debug("Initializing JsonSerde for Hive");
+	LOG.debug("Initializing JsonSerde");
 
 	// Get the names of the columns for the table this SerDe is being used
 	// with
 	String columnNameProperty = tblProps
 		.getProperty(Constants.LIST_COLUMNS);
-	String keyPathProperty = tblProps.getProperty("paths");
-	LOG.debug("keyPathProperty: " + keyPathProperty);
-	keyPaths = Arrays.asList(keyPathProperty.split(","));
-	
 	columnNames = Arrays.asList(columnNameProperty.split(","));
 
 	// Convert column types from text to TypeInfo objects
@@ -137,8 +126,8 @@ public class JsonSerde implements SerDe {
 		.getProperty(Constants.LIST_COLUMN_TYPES);
 	List<TypeInfo> columnTypes = TypeInfoUtils
 		.getTypeInfosFromTypeString(columnTypeProperty);
-	assert keyPaths.size() == columnTypes.size();
-	numColumns = keyPaths.size();
+	assert columnNames.size() == columnTypes.size();
+	numColumns = columnNames.size();
 
 	// Create ObjectInspectors from the type information for each column
 	List<ObjectInspector> columnOIs = new ArrayList<ObjectInspector>(
@@ -190,50 +179,25 @@ public class JsonSerde implements SerDe {
 	}
 
 	// Loop over columns in table and set values
-	String keyName;
+	String colName;
 	Object value;
 	for (int c = 0; c < numColumns; c++) {
-	    keyName = keyPaths.get(c).trim();
+	    colName = columnNames.get(c);
 
-	    try 
-	    {
-	    	value = get(keyName, rowText.toString());
-	    } 
-	    catch (JSONException e) 
-	    {
-        	// If the column cannot be found, just make it a NULL value and
-        	// skip over it
-        	LOG.warn("Key '" + keyName + "' not found in row: "
-        			+ rowText.toString() + " - JSONException: "
-        			+ e.getMessage());
-        	value = null;
-        }
+	    try {
+		value = jObj.get(colName);
+	    } catch (JSONException e) {
+		// If the column cannot be found, just make it a NULL value and
+		// skip over it
+		LOG.warn("Column '" + colName + "' not found in row: "
+			+ rowText.toString() + " - JSONException: "
+			+ e.getMessage());
+		value = null;
+	    }
 	    row.set(c, value);
 	}
 
 	return row;
-    }
-    
-    private Object get(String key, String json) throws JSONException
-    {
-    	JSONObject jObj = new JSONObject(new JSONTokener(json));
-    	Object value = jObj;
-    	//LOG.debug("\n=============key is:"+key+", json is:"+json.toString());
-		StringTokenizer st = new StringTokenizer(key, "/");
-    	while (st.hasMoreTokens())
-    	{
-    		String parentKey = st.nextToken();
-    		if (!(value instanceof JSONObject))
-    		{
-    			value = null;
-    			break;
-    		}
-    		value = ((JSONObject)value).opt(parentKey);
-    		if (value == null)
-    			break;
-    	}
-    	//LOG.debug("value obtained is "+value.toString());
-    	return value;
     }
 
     /**
@@ -260,4 +224,11 @@ public class JsonSerde implements SerDe {
 
 	return null;
     }
+    
+    public static void main(String[] args) throws SerDeException
+    {
+    	String columns = "causeId, medium, metadata/ns, hostName, metadata/p";
+    	List<String> columnNames = Arrays.asList(columns.split(","));
+    }
 }
+
